@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Visor Mesh Machangara</title>
+  <meta charset="utf-8">
+  <!-- CesiumJS JavaScript CSS files -->
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+  <!-- estilos -->
+
+  
+
+  <style>
+
+body {
+  font-family: arial, sans-serif;
+  margin: 0 2em;
+
+}
+
+
+.encabezado{
+  display:flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color:  #FFFFFF;
+
+
+  }
+
+  #cesiumContainer{
+    height: 87vh;
+    width: 100%;
+}
+
+  h1{
+  display: block;
+  color : #27497C;
+  font-size: 2em;
+  font-weight: 700;
+  flex-grow: 2;
+  text-align: center;
+
+
+}
+
+#logo{
+
+width: 10em;
+
+}
+
+  </style>
+  
+
+</head>
+<body>
+  <div class="encabezado">
+    <img id="logo" src="logo.png" alt="Logo">
+    <h1>DEMO VISOR MESH CESIUM</h1>
+  </div>
+  <div id="cesiumContainer" class="fullSize"></div>
+    <div id="toolbar"></div>
+    
+  <script>
+
+Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4YmRiN2Y3My1hMmYxLTQ4ZTktYWU2Yy02NWUyNWIyYTU5MzQiLCJpZCI6NzUyODcsImlhdCI6MTY3Njc0Mjk1N30.VVfP2xRmcNDp-Yy_qsDRhGvdDORhDlAcINz-WDawy_U";
+
+const viewer = new Cesium.Viewer("cesiumContainer", {
+  terrainProvider: new Cesium.CesiumTerrainProvider({
+    url: Cesium.IonResource.fromAssetId(1),
+  }),
+});
+
+viewer.scene.globe.depthTestAgainstTerrain = true;
+
+const tileset = viewer.scene.primitives.add(
+  new Cesium.Cesium3DTileset({
+
+    url: "/data/tileset.json",
+    modelMatrix: Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees( -78.5437, -0.2653,2900)
+    ),
+  })
+);
+(async () => {
+  try {
+    await tileset.readyPromise;
+    await viewer.zoomTo(tileset);
+
+    const extras = tileset.asset.extras;
+    if (
+      Cesium.defined(extras) &&
+      Cesium.defined(extras.ion) &&
+      Cesium.defined(extras.ion.defaultStyle)
+    ) {
+      tileset.style = new Cesium.Cesium3DTileStyle(extras.ion.defaultStyle);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+})();
+
+  </script>
+ </div>
+</body>
+</html>
