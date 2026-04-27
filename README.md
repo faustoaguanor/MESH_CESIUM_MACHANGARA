@@ -2,8 +2,6 @@
 
 Un visualizador web interactivo de mallas 3D para el sector de Machangara, desarrollado con CesiumJS para representación geoespacial avanzada en navegadores web.
 
-![Logo del proyecto](logo.png)
-
 ## Descripción
 
 Este proyecto implementa un visualizador 3D web para mallas de datos geoespaciales del sector Machangara utilizando CesiumJS, la biblioteca líder para visualización 3D de datos geoespaciales en navegadores. La aplicación permite la exploración interactiva de modelos 3D optimizados sobre terreno real con integración completa de coordenadas geográficas.
