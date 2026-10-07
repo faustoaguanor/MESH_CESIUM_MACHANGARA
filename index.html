@@ -199,16 +199,27 @@
 // Configuración
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  // Token de Cesium ion (terreno e imágenes). Restrínjalo en https://ion.cesium.com/tokens
-  // a los dominios donde se publique el visor.
+  // Token de Cesium ion (terreno e imágenes). Es público por naturaleza (va al navegador):
+  // debe estar RESTRINGIDO en https://ion.cesium.com/tokens a los dominios del visor y a los
+  // assets 1 (World Terrain) y 2 (Bing Aerial). Si falla o se revoca, el visor sigue
+  // funcionando con OpenStreetMap y sin relieve.
   ionToken:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4YmRiN2Y3My1hMmYxLTQ4ZTktYWU2Yy02NWUyNWIyYTU5MzQiLCJpZCI6NzUyODcsImlhdCI6MTY3Njc0Mjk1N30.VVfP2xRmcNDp-Yy_qsDRhGvdDORhDlAcINz-WDawy_U",
   tilesetUrl: "data/tileset.json",
   footprintUrl: "data/footprint.json",
   // Origen local del tileset (Ion "movable", sin georreferencia propia).
-  // La altura es ELIPSOIDAL (WGS84): altura ortométrica de la malla + ondulación del geoide.
-  origen: { lon: -78.5437, lat: -0.2653, altura: 2900.0 },
+  origen: {
+    lon: -78.5437,
+    lat: -0.2653,
+    // Cota ortométrica (sobre el nivel del mar) del origen local de la malla: es la
+    // traslación Z que Cesium ion aplicó al tileset (tileset.json, root.children[0].transform).
+    alturaOrtometrica: 2872.497,
+    // Ondulación del geoide EGM96 en (lon, lat): N = h - H. Cesium trabaja con alturas
+    // elipsoidales WGS84 (h), así que h = H + N. Calculada con egm96-universal.
+    ondulacionGeoide: 25.58,
+  },
 };
+CONFIG.origen.altura = CONFIG.origen.alturaOrtometrica + CONFIG.origen.ondulacionGeoide;
 
 Cesium.Ion.defaultAccessToken = CONFIG.ionToken;
 
@@ -219,8 +230,12 @@ const barraCarga = $("carga");
 // ---------------------------------------------------------------------------
 // Visor
 // ---------------------------------------------------------------------------
+const terrenoIon = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true });
+const capaIon = Cesium.ImageryLayer.fromWorldImagery();
+
 const viewer = new Cesium.Viewer("cesiumContainer", {
-  terrain: Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true }),
+  terrain: terrenoIon,
+  baseLayer: capaIon,
   animation: false,
   timeline: false,
   fullscreenButton: true,
@@ -230,7 +245,7 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   navigationHelpButton: true,
   navigationInstructionsInitiallyVisible: false,
   sceneModePicker: false,
-  baseLayerPicker: true,
+  baseLayerPicker: false,
   // Solo se redibuja cuando algo cambia: menos GPU/batería en reposo.
   requestRenderMode: true,
   maximumRenderTimeChange: Infinity,
@@ -239,6 +254,23 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
 
 const scene = viewer.scene;
 const globe = scene.globe;
+
+// Respaldo sin Cesium ion (token inválido, revocado o sin red hacia ion).
+let avisoIon = "";
+function sinIon(recurso, error) {
+  console.warn(`Cesium ion no disponible (${recurso}):`, error);
+  avisoIon = "Cesium ion no disponible: se muestra OpenStreetMap sin relieve.";
+  estado.textContent = avisoIon;
+}
+terrenoIon.errorEvent.addEventListener((e) => sinIon("terreno", e));
+capaIon.errorEvent.addEventListener((e) => {
+  viewer.imageryLayers.remove(capaIon);
+  viewer.imageryLayers.addImageryProvider(
+    new Cesium.OpenStreetMapImageryProvider({ url: "https://tile.openstreetmap.org/" }),
+    0
+  );
+  sinIon("imágenes", e);
+});
 
 // La malla es fotogrametría con material "unlit": colores tal cual fueron capturados.
 scene.highDynamicRange = false;
@@ -312,7 +344,7 @@ async function iniciar() {
     actualizarRecortes();
     fmtAltura();
     await irAMalla(0);
-    estado.textContent = "Clic: coordenadas · «Medir distancia» para medir entre dos puntos";
+    estado.textContent = avisoIon || "Clic: coordenadas · «Medir distancia» para medir entre dos puntos";
   } catch (error) {
     console.error(error);
     estado.textContent = `Error al cargar la malla: ${error.message || error}`;

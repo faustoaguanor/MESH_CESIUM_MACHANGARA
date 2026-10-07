@@ -51,19 +51,37 @@ Abra `http://localhost:8000`. No funciona abriendo `index.html` directamente (`f
 
 ### Token de Cesium ion
 
-El token está en `CONFIG.ionToken` dentro de `index.html`. Como el repositorio es público, **restrinja el token** en <https://ion.cesium.com/tokens> a los dominios donde se publique el visor (por ejemplo `faustoaguanor.github.io` y `localhost`) y con acceso solo a los assets 1 (World Terrain) y 2 (Bing Aerial), o genere uno nuevo y revoque el actual.
+El token está en `CONFIG.ionToken` dentro de `index.html`. En un visor web estático el token siempre llega al navegador, así que no se puede ocultar: la protección consiste en **restringirlo**. El token actual está en el historial público del repositorio, por lo que conviene reemplazarlo:
+
+1. En <https://ion.cesium.com/tokens> cree un token nuevo con:
+   - **Scopes**: solo `assets:read`.
+   - **Resources**: solo los assets `1` (Cesium World Terrain) y `2` (Bing Maps Aerial).
+   - **Allowed URLs**: los dominios del visor, p. ej. `https://faustoaguanor.github.io` y `http://localhost:8000`.
+2. Péguelo en `CONFIG.ionToken`.
+3. Revoque el token anterior (el que empieza por `eyJhbGciOi…NTkzNCIs`).
+
+Si el token falla o se revoca, el visor no se rompe: muestra OpenStreetMap sin relieve y lo indica en la barra de estado.
 
 ## Georreferenciación y alturas
 
-El tileset se exportó desde Cesium ion como *movable* (`georeferenced: false`): sus coordenadas son métricas locales. El visor lo coloca con una matriz Este-Norte-Arriba en:
+El tileset se exportó desde Cesium ion como *movable* (`georeferenced: false`): sus coordenadas son métricas locales. El visor lo coloca con una matriz Este-Norte-Arriba:
 
 ```javascript
-origen: { lon: -78.5437, lat: -0.2653, altura: 2900.0 }
+origen: {
+  lon: -78.5437,
+  lat: -0.2653,
+  alturaOrtometrica: 2872.497, // cota sobre el nivel del mar del origen local de la malla
+  ondulacionGeoide: 25.58,     // N del geoide EGM96 en ese punto
+}
+// altura elipsoidal = 2872.497 + 25.58 = 2898.08 m
 ```
 
-- La **altura es elipsoidal (WGS84)**, que es lo que usa Cesium. La malla está en alturas ortométricas (~2872–2911 m), por lo que el origen debe incluir la ondulación del geoide: el valor actual (2900 m para la base de la malla en 2872,5 m) supone ≈ +27,5 m. Verifíquelo con EGM2008 si necesita precisión absoluta.
+- Cesium trabaja con **alturas elipsoidales WGS84** (*h*); la malla está en **alturas ortométricas** (*H*, ~2872–2911 m). La conversión es *h = H + N*.
+- **N = 25,58 m** se calculó con el modelo EGM96 (paquete `egm96-universal`). Antes se usaban 2900 m fijos, que suponían N ≈ 27,5 m: la malla quedaba ~1,9 m por encima.
+- `alturaOrtometrica` es la traslación Z que Cesium ion aplicó al tileset (`tileset.json` → `root.children[0].transform`); no debe cambiarse salvo que cambie el tileset.
+- Si las cotas de la malla se referían a EGM2008 o al datum vertical del IGM, la diferencia con EGM96 aquí es del orden de 1 m. Si la malla estuviera en alturas **elipsoidales** (GNSS sin modelo de geoide), ponga `ondulacionGeoide: 0`.
 - Con ~600 m de extensión, la convergencia de cuadrícula UTM 17S (≈0,01°) y el factor de escala (≈1,0005) son despreciables.
-- Si la malla flota o se hunde respecto al terreno, use el control de altura o *Ajustar al terreno* y luego fije el valor en `CONFIG.origen.altura`. Tenga en cuenta que el terreno global es mucho más grueso que la malla: úselo como guía, no como verdad de campo.
+- El control de altura y *Ajustar al terreno* sirven para revisar el encaje visual; el terreno global (~30 m) es una guía, no una verdad de campo.
 
 ## Preparación de datos
 
