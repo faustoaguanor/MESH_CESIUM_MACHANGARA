@@ -127,6 +127,16 @@
       pointer-events: none;
     }
 
+    .sin-webgl {
+      max-width: 40rem;
+      margin: 2rem auto;
+      padding: 1rem 1.4rem;
+      color: #1f2733;
+      line-height: 1.5;
+    }
+    .sin-webgl h2 { color: var(--azul); font-size: 1.2rem; }
+    .sin-webgl .detalle { color: #6b7585; font-size: 0.8rem; }
+
     #carga {
       position: absolute;
       top: 0;
@@ -207,12 +217,14 @@ const barraCarga = $("carga");
 const terrenoIon = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true });
 const capaIon = Cesium.ImageryLayer.fromWorldImagery();
 
-// Algunos equipos anuncian WebGL 2 pero no logran crear el contexto (GPU en lista negra,
-// aceleración por hardware desactivada, controladores antiguos). Cesium no reintenta con
-// WebGL 1 en ese caso, así que se prueba antes y se elige la configuración que funcione.
+// Algunos equipos anuncian WebGL 2 pero no logran crear el contexto (aceleración por
+// hardware desactivada, GPU bloqueada por el navegador, controladores antiguos). Cesium no
+// reintenta con WebGL 1, así que se prueba antes y se elige la opción que funcione.
+// Se usa powerPreference "default": "high-performance" fuerza la GPU dedicada en portátiles
+// con dos GPU y es una causa conocida de fallos al crear el contexto.
 function opcionesWebGL() {
-  const base = { alpha: false, stencil: true };
-  const probar = (tipo, attrs) => {
+  const attrs = { alpha: false, stencil: true, powerPreference: "default" };
+  const probar = (tipo) => {
     try {
       const gl = document.createElement("canvas").getContext(tipo, attrs);
       if (gl) {
@@ -225,32 +237,65 @@ function opcionesWebGL() {
     }
     return false;
   };
-  const alto = { ...base, powerPreference: "high-performance" };
-  const normal = { ...base, powerPreference: "default" };
-  if (probar("webgl2", alto)) return { webgl2: true, contextOptions: { webgl: alto } };
-  if (probar("webgl2", normal)) return { webgl2: true, contextOptions: { webgl: normal } };
-  return { webgl2: false, contextOptions: { requestWebgl1: true, webgl: normal } };
+  if (probar("webgl2")) return { webgl2: true, contextOptions: { webgl: attrs } };
+  if (probar("webgl")) return { webgl2: false, contextOptions: { requestWebgl1: true, webgl: attrs } };
+  return null;
 }
-const webgl = opcionesWebGL();
 
-const viewer = new Cesium.Viewer("cesiumContainer", {
-  contextOptions: webgl.contextOptions,
-  terrain: terrenoIon,
-  baseLayer: capaIon,
-  animation: false,
-  timeline: false,
-  fullscreenButton: true,
-  geocoder: false,
-  infoBox: false,
-  selectionIndicator: false,
-  navigationHelpButton: true,
-  navigationInstructionsInitiallyVisible: false,
-  sceneModePicker: false,
-  baseLayerPicker: false,
-  // Solo se redibuja cuando algo cambia: menos GPU/batería en reposo.
-  requestRenderMode: true,
-  maximumRenderTimeChange: Infinity,
-  msaaSamples: webgl.webgl2 ? 4 : 1, // MSAA requiere WebGL 2
+// Mensaje claro en lugar del error técnico de Cesium cuando no hay WebGL disponible.
+function mostrarSinWebGL(detalle) {
+  $("cesiumContainer").innerHTML = `
+    <div class="sin-webgl">
+      <h2>El navegador no permite usar WebGL en esta página</h2>
+      <p>El visor 3D necesita WebGL. Pruebe, en este orden:</p>
+      <ol>
+        <li>Cierre <strong>todas</strong> las ventanas del navegador y vuelva a abrirlo
+          (Chrome y Edge bloquean WebGL en un sitio después de un fallo de la GPU hasta reiniciar).</li>
+        <li>Active la aceleración por hardware: Configuración → Sistema →
+          «Usar aceleración por hardware cuando esté disponible», y reinicie el navegador.</li>
+        <li>Revise <code>chrome://gpu</code> (o <code>edge://gpu</code>): «WebGL» y «WebGL2» deben decir
+          «Hardware accelerated».</li>
+        <li>Actualice los controladores de video o pruebe con otro navegador.</li>
+      </ol>
+      <p class="detalle">${detalle}</p>
+    </div>`;
+}
+
+const webgl = opcionesWebGL();
+if (!webgl) {
+  mostrarSinWebGL("No se pudo crear un contexto WebGL 2 ni WebGL 1.");
+  throw new Error("WebGL no disponible");
+}
+
+let viewer;
+try {
+  viewer = new Cesium.Viewer("cesiumContainer", {
+    contextOptions: webgl.contextOptions,
+    terrain: terrenoIon,
+    baseLayer: capaIon,
+    animation: false,
+    timeline: false,
+    fullscreenButton: true,
+    geocoder: false,
+    infoBox: false,
+    selectionIndicator: false,
+    navigationHelpButton: true,
+    navigationInstructionsInitiallyVisible: false,
+    sceneModePicker: false,
+    baseLayerPicker: false,
+    // Solo se redibuja cuando algo cambia: menos GPU/batería en reposo.
+    requestRenderMode: true,
+    maximumRenderTimeChange: Infinity,
+    msaaSamples: webgl.webgl2 ? 4 : 1, // MSAA requiere WebGL 2
+  });
+} catch (error) {
+  mostrarSinWebGL(String(error && error.message ? error.message : error));
+  throw error;
+}
+
+// Si la GPU pierde el contexto (reinicio del controlador, falta de memoria), se avisa.
+viewer.canvas.addEventListener("webglcontextlost", () => {
+  estado.textContent = "Se perdió el contexto WebGL (la GPU se reinició). Recargue la página.";
 });
 
 const scene = viewer.scene;
@@ -280,7 +325,6 @@ globe.depthTestAgainstTerrain = true;          // la malla queda correctamente o
 globe.enableLighting = false;
 globe.maximumScreenSpaceError = 1.5;           // terreno algo más fino alrededor de la malla
 scene.screenSpaceCameraController.enableCollisionDetection = true;
-viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2); // nitidez en pantallas HiDPI sin pasarse
 
 // ---------------------------------------------------------------------------
 // Utilidades de georreferenciación
