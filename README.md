@@ -59,24 +59,28 @@ Si el token falla, el visor no se rompe: muestra OpenStreetMap sin relieve y lo 
 
 ## Georreferenciación y alturas
 
-El tileset se exportó desde Cesium ion como *movable* (`georeferenced: false`): sus coordenadas son métricas locales. El visor lo coloca con una matriz Este-Norte-Arriba:
+El tileset se exportó desde Cesium ion como *movable* (`georeferenced: false`): sus coordenadas son métricas locales. El visor lo coloca con una matriz Este-Norte-Arriba según `config.js`:
 
 ```javascript
 origen: {
   lon: -78.5437,
   lat: -0.2653,
-  alturaOrtometrica: 2872.497, // cota sobre el nivel del mar del origen local de la malla
-  ondulacionGeoide: 25.58,     // N del geoide EGM96 en ese punto
+  altura: 2872.497, // altura ELIPSOIDAL WGS84 del origen local de la malla
 }
-// altura elipsoidal = 2872.497 + 25.58 = 2898.08 m
 ```
 
-- Cesium trabaja con **alturas elipsoidales WGS84** (*h*); la malla está en **alturas ortométricas** (*H*, ~2872–2911 m). La conversión es *h = H + N*.
-- **N = 25,58 m** se calculó con el modelo EGM96 (paquete `egm96-universal`). Antes se usaban 2900 m fijos, que suponían N ≈ 27,5 m: la malla quedaba ~1,9 m por encima.
-- `alturaOrtometrica` es la traslación Z que Cesium ion aplicó al tileset (`tileset.json` → `root.children[0].transform`); no debe cambiarse salvo que cambie el tileset.
-- Si las cotas de la malla se referían a EGM2008 o al datum vertical del IGM, la diferencia con EGM96 aquí es del orden de 1 m. Si la malla estuviera en alturas **elipsoidales** (GNSS sin modelo de geoide), ponga `ondulacionGeoide: 0` en `config.js`.
+- Cesium trabaja con **alturas elipsoidales WGS84**. `altura` es la traslación Z que Cesium ion aplicó al tileset (`tileset.json` → `root.children[0].transform`), es decir, la altura original de la malla.
+- **La malla ya está en alturas elipsoidales** (las del GNSS del dron), así que no se suma la ondulación del geoide. Comprobación contra el DEM SRTM (alturas sobre el nivel del mar), comparando el suelo de la malla en 278 celdas de 30 m:
+
+  | Hipótesis | DEM − suelo de la malla |
+  |---|---|
+  | Malla ortométrica (sobre el nivel del mar) | −24,86 m |
+  | Malla elipsoidal (N EGM96 = 25,58 m) | **+0,72 m** |
+
+  Versiones anteriores usaban 2900 m y luego 2898,08 m (sumando el geoide), lo que dejaba la malla unos 25–27 m por encima del terreno.
+- Para repetir la verificación: `python tools/preparar_malla.py altura`.
 - Con ~600 m de extensión, la convergencia de cuadrícula UTM 17S (≈0,01°) y el factor de escala (≈1,0005) son despreciables.
-- El control de altura y *Ajustar al terreno* sirven para revisar el encaje visual; el terreno global (~30 m) es una guía, no una verdad de campo.
+- El control de altura y *Ajustar al terreno* del visor sirven para revisar el encaje visual; el terreno global (~30 m) es una guía, no una verdad de campo.
 
 ## Preparación de datos
 
