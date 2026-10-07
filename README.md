@@ -29,7 +29,6 @@ Este proyecto implementa un visualizador 3D web para mallas de datos geoespacial
 MESH_CESIUM_MACHANGARA/
 ├── index.html              # Visor (HTML + CSS + JS, sin compilación)
 ├── config.js               # Token de Cesium ion y origen de la malla
-├── logo.png
 ├── data/
 │   ├── tileset.json        # Árbol de teselas (Cesium ion, "movable": sin georreferencia propia)
 │   ├── footprint.json      # Contorno válido y puntos de control (generado)

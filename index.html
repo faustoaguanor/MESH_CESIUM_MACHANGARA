@@ -44,8 +44,6 @@
       flex: 0 0 auto;
     }
 
-    #logo { height: 3rem; width: auto; }
-
     h1 {
       margin: 0;
       flex: 1;
@@ -141,14 +139,12 @@
     }
 
     @media (max-width: 600px) {
-      #logo { height: 2.2rem; }
       .panel { width: auto; right: 0.6rem; }
     }
   </style>
 </head>
 <body>
   <header class="encabezado">
-    <img id="logo" src="logo.png" alt="Logo">
     <h1>Visor Mesh Machángara</h1>
   </header>
 
@@ -211,7 +207,34 @@ const barraCarga = $("carga");
 const terrenoIon = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true });
 const capaIon = Cesium.ImageryLayer.fromWorldImagery();
 
+// Algunos equipos anuncian WebGL 2 pero no logran crear el contexto (GPU en lista negra,
+// aceleración por hardware desactivada, controladores antiguos). Cesium no reintenta con
+// WebGL 1 en ese caso, así que se prueba antes y se elige la configuración que funcione.
+function opcionesWebGL() {
+  const base = { alpha: false, stencil: true };
+  const probar = (tipo, attrs) => {
+    try {
+      const gl = document.createElement("canvas").getContext(tipo, attrs);
+      if (gl) {
+        const ext = gl.getExtension("WEBGL_lose_context");
+        if (ext) ext.loseContext();
+        return true;
+      }
+    } catch (e) {
+      // se prueba la siguiente opción
+    }
+    return false;
+  };
+  const alto = { ...base, powerPreference: "high-performance" };
+  const normal = { ...base, powerPreference: "default" };
+  if (probar("webgl2", alto)) return { webgl2: true, contextOptions: { webgl: alto } };
+  if (probar("webgl2", normal)) return { webgl2: true, contextOptions: { webgl: normal } };
+  return { webgl2: false, contextOptions: { requestWebgl1: true, webgl: normal } };
+}
+const webgl = opcionesWebGL();
+
 const viewer = new Cesium.Viewer("cesiumContainer", {
+  contextOptions: webgl.contextOptions,
   terrain: terrenoIon,
   baseLayer: capaIon,
   animation: false,
@@ -227,7 +250,7 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   // Solo se redibuja cuando algo cambia: menos GPU/batería en reposo.
   requestRenderMode: true,
   maximumRenderTimeChange: Infinity,
-  msaaSamples: 4,
+  msaaSamples: webgl.webgl2 ? 4 : 1, // MSAA requiere WebGL 2
 });
 
 const scene = viewer.scene;
@@ -358,6 +381,12 @@ function poligonoContorno() {
 
 function actualizarRecortes() {
   if (!huella || !huella.contorno) return;
+  // Los recortes por polígono requieren WebGL 2.
+  if (!Cesium.ClippingPolygonCollection.isSupported(scene)) {
+    $("chkRecorte").checked = $("chkBordes").checked = false;
+    $("chkRecorte").disabled = $("chkBordes").disabled = true;
+    return;
+  }
   if (!globe.clippingPolygons || globe.clippingPolygons.length === 0) {
     globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
       polygons: [poligonoContorno()],
@@ -478,13 +507,17 @@ handler.setInputAction((ev) => {
         depthFailMaterial: Cesium.Color.YELLOW.withAlpha(0.4),
       },
       position: Cesium.Cartesian3.midpoint(puntoA, p, new Cesium.Cartesian3()),
-      label: {
-        text: `${d.toFixed(2)} m`,
-        font: "14px sans-serif",
-        fillColor: Cesium.Color.WHITE,
-        showBackground: true,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      },
+      // Las etiquetas de Cesium 1.146 usan un shader que solo compila en WebGL 2;
+      // en WebGL 1 la distancia se muestra únicamente en la barra de estado.
+      label: scene.context.webgl2
+        ? {
+            text: `${d.toFixed(2)} m`,
+            font: "14px sans-serif",
+            fillColor: Cesium.Color.WHITE,
+            showBackground: true,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          }
+        : undefined,
     });
     estado.textContent =
       `Distancia 3D ${d.toFixed(2)} m · horizontal ${dHoriz.toFixed(2)} m · Δh ${dh.toFixed(2)} m`;
