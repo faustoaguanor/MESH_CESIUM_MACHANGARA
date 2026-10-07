@@ -198,11 +198,26 @@
     <div id="estado">Cargando…</div>
   </main>
 
-  <script src="config.js"></script>
+  <!-- ?v= evita que el navegador combine un config.js antiguo en caché con este index.html.
+       Súbalo cuando cambie la estructura de CONFIG. -->
+  <script src="config.js?v=4"></script>
   <script>
 "use strict";
 
-// CONFIG se define en config.js.
+// CONFIG se define en config.js. Se valida por si llega una versión antigua o mal editada.
+(function validarConfig() {
+  const o = (CONFIG && CONFIG.origen) || {};
+  // Compatibilidad con config.js anterior (alturaOrtometrica + ondulacionGeoide): la malla
+  // ya está en alturas elipsoidales, así que solo vale la traslación del tileset.
+  if (!Number.isFinite(o.altura) && Number.isFinite(o.alturaOrtometrica)) o.altura = o.alturaOrtometrica;
+  const faltan = ["lon", "lat", "altura"].filter((k) => !Number.isFinite(o[k]));
+  if (faltan.length) {
+    const msg = `config.js: falta o no es un número origen.${faltan.join(", origen.")}. ` +
+      "Recargue con Ctrl+F5 o revise config.js.";
+    document.getElementById("estado").textContent = msg;
+    throw new Error(msg);
+  }
+})();
 
 Cesium.Ion.defaultAccessToken = CONFIG.ionToken;
 
