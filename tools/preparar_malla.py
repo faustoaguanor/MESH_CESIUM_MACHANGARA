@@ -9,6 +9,9 @@ contra el terreno.
 Escribe ``data/footprint.json``, que el visor usa para recortar la malla por
 fuera y el terreno de Cesium por dentro.
 
+``altura`` comprueba el datum vertical de la malla comparando su suelo con el DEM
+SRTM de AWS Terrain Tiles (Terrarium, alturas sobre el nivel del mar EGM96).
+
 Las teselas no se modifican. Se evaluó activar mipmaps (LINEAR_MIPMAP_LINEAR)
 y se descartó: Cesium reescala las texturas NPOT a potencia de 2, la imagen
 pierde nitidez y aparecen costuras del atlas; con HLOD cada nivel ya trae la
@@ -19,12 +22,15 @@ Requisitos: ``pip install numpy shapely DracoPy pillow``
 Uso::
 
     python tools/preparar_malla.py huella
+    python tools/preparar_malla.py altura
 """
 
 import argparse
 import io
 import json
+import math
 import struct
+import urllib.request
 import sys
 from pathlib import Path
 
@@ -147,12 +153,94 @@ def cmd_huella(args):
     )
 
 
+# ---------------------------------------------------------------------------
+# Datum vertical
+# ---------------------------------------------------------------------------
+TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+
+
+def cmd_altura(args):
+    import DracoPy
+    import numpy as np
+    from PIL import Image
+
+    tileset = json.loads((DATA / "tileset.json").read_text())
+    t = tileset["root"]["children"][0]["transform"]
+    ox, oy, oz = -t[12], -t[13], -t[14]
+
+    # Vértices de un nivel de detalle intermedio, en ENU local con la altura original.
+    pts = []
+    for ruta in sorted((DATA / str(args.nivel)).glob("*.b3dm")):
+        _, gltf, binario = leer_b3dm(ruta)
+        draco = gltf["meshes"][0]["primitives"][0]["extensions"]["KHR_draco_mesh_compression"]
+        P = np.asarray(DracoPy.decode(vista(gltf, binario, draco["bufferView"])).points)
+        pts.append(np.c_[P[:, 0] - ox, -P[:, 2] - oy, P[:, 1]])
+    P = np.vstack(pts)
+
+    lon0, lat0 = args.lon, args.lat
+    a, e2 = 6378137.0, 6.69437999014e-3
+    phi = math.radians(lat0)
+    rm = a * (1 - e2) / (1 - e2 * math.sin(phi) ** 2) ** 1.5
+    rn = a / math.sqrt(1 - e2 * math.sin(phi) ** 2)
+
+    z, teselas = 15, {}
+
+    def dem(lon, lat):
+        n = 2**z
+        X = (lon + 180) / 360 * n * 256 - 0.5
+        Y = (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n * 256 - 0.5
+        x0, y0 = int(math.floor(X)), int(math.floor(Y))
+        fx, fy = X - x0, Y - y0
+
+        def px(x, y):
+            clave = (x // 256, y // 256)
+            if clave not in teselas:
+                url = TERRARIUM.format(z=z, x=clave[0], y=clave[1])
+                im = np.asarray(Image.open(io.BytesIO(urllib.request.urlopen(url).read())).convert("RGB"))
+                im = im.astype(float)
+                teselas[clave] = im[:, :, 0] * 256 + im[:, :, 1] + im[:, :, 2] / 256 - 32768
+            return teselas[clave][y % 256, x % 256]
+
+        return (
+            px(x0, y0) * (1 - fx) * (1 - fy) + px(x0 + 1, y0) * fx * (1 - fy)
+            + px(x0, y0 + 1) * (1 - fx) * fy + px(x0 + 1, y0 + 1) * fx * fy
+        )
+
+    # Suelo de la malla por celda (percentil 5, evita tejados y árboles) frente al DEM.
+    c = args.celda
+    ix, iy = np.floor(P[:, 0] / c).astype(int), np.floor(P[:, 1] / c).astype(int)
+    dif = []
+    for cx, cy in set(zip(ix, iy)):
+        m = (ix == cx) & (iy == cy)
+        if m.sum() < 50:
+            continue
+        suelo = np.percentile(P[m, 2], 5)
+        e, n_ = (cx + 0.5) * c, (cy + 0.5) * c
+        lon = lon0 + math.degrees(e / (rn * math.cos(phi)))
+        lat = lat0 + math.degrees(n_ / rm)
+        dif.append(dem(lon, lat) - suelo)
+    dif = np.array(dif)
+    med = float(np.median(dif))
+    mad = float(np.median(np.abs(dif - med)))
+    print(f"{len(dif)} celdas de {c:.0f} m; DEM (nivel del mar) - suelo de la malla:")
+    print(f"  si la malla es ortométrica: {med:+.2f} m (MAD {mad:.2f})")
+    print(f"  si la malla es elipsoidal (N = {args.n:.2f} m): {med + args.n:+.2f} m")
+    print("La hipótesis con el valor más cercano a 0 es la correcta.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     h = sub.add_parser("huella", help="genera data/footprint.json")
     h.add_argument("--umbral-blanco", type=int, default=235, help="valor RGB mínimo considerado 'sin textura'")
     h.set_defaults(func=cmd_huella)
+    v = sub.add_parser("altura", help="compara la malla con el DEM SRTM para verificar el datum vertical")
+    v.add_argument("--lon", type=float, default=-78.5437)
+    v.add_argument("--lat", type=float, default=-0.2653)
+    v.add_argument("--n", type=float, default=25.58, help="ondulación del geoide EGM96 (m)")
+    v.add_argument("--nivel", type=int, default=3, help="nivel de detalle de las teselas")
+    v.add_argument("--celda", type=float, default=30.0, help="tamaño de celda (m), ~resolución del DEM")
+    v.set_defaults(func=cmd_altura)
     args = ap.parse_args()
     args.func(args)
 

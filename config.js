@@ -14,11 +14,12 @@ const CONFIG = {
   origen: {
     lon: -78.5437,
     lat: -0.2653,
-    // Cota ortométrica (sobre el nivel del mar) del origen local de la malla: es la
+    // Altura ELIPSOIDAL WGS84 (la que usa Cesium) del origen local de la malla: es la
     // traslación Z que Cesium ion aplicó al tileset (tileset.json, root.children[0].transform).
-    alturaOrtometrica: 2872.497,
-    // Ondulación del geoide EGM96 en (lon, lat): N = h - H. Cesium trabaja con alturas
-    // elipsoidales WGS84 (h), así que h = H + N. Calculada con egm96-universal.
-    ondulacionGeoide: 25.58,
+    // La malla ya está en alturas elipsoidales (GNSS del dron), así que NO se suma el geoide:
+    // comparada con el DEM SRTM (alturas sobre el nivel del mar) + geoide EGM96 (25,58 m),
+    // el suelo de la malla queda a 0,7 m (mediana de 278 celdas de 30 m).
+    // Verificación: python tools/preparar_malla.py altura
+    altura: 2872.497,
   },
 };
