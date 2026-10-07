@@ -8,136 +8,95 @@ Este proyecto implementa un visualizador 3D web para mallas de datos geoespacial
 
 ## Características principales
 
-- **Visualización 3D geoespacial**: Integración nativa con sistemas de coordenadas terrestres
-- **Carga de mallas 3D optimizadas**: Formato 3D Tiles para visualización eficiente
-- **Terreno real de Cesium**: Superposición sobre datos de elevación globales
-- **Navegación fluida**: Controles intuitivos para exploración 3D
-- **Sincronización temporal**: Potencial para visualización de datos temporales
-- **Interfaz responsiva**: Diseño adaptativo para diferentes dispositivos
-- **Integración con Cesium Ion**: Acceso a datasets globales y servicios en la nube
+- **Malla fotogramétrica en 3D Tiles** (HLOD de 6 niveles, 637 teselas b3dm con geometría Draco y texturas WebP, material *unlit*), servida de forma progresiva según la distancia.
+- **Terreno recortado bajo la malla**: Cesium World Terrain (~30 m de resolución en Ecuador) ya no atraviesa la malla en el cauce del Machángara ni en los taludes.
+- **Bordes limpios**: se ocultan los faldones blancos sin cobertura fotográfica del perímetro (≈1,7 ha), recortando la malla con su contorno válido.
+- **Ajuste vertical**: control deslizante de la altura del origen y botón *Ajustar al terreno*, que compara 300 vértices del borde de la malla con el terreno (mediana y MAD).
+- **Coordenadas y medición**: clic para obtener latitud/longitud/altura elipsoidal; medición de distancia 3D, horizontal y desnivel.
+- **Rendimiento**: `requestRenderMode` (solo redibuja cuando algo cambia), SSE dinámico y foveado, MSAA 4×, sin sombras ni iluminación para un material *unlit*, selector de calidad (SSE 4–32).
+- **Interfaz responsiva** en español, panel plegable en móviles.
 
 ## Tecnologías utilizadas
 
-### Visualización 3D Geoespacial
-- **[CesiumJS](https://cesium.com/platform/cesiumjs/)**: Biblioteca principal para visualización 3D de datos geoespaciales
-- **[3D Tiles](https://github.com/CesiumGS/3d-tiles)**: Formato abierto para transmisión masiva de datos 3D heterogéneos
-- **[Cesium Ion](https://cesium.com/platform/cesium-ion/)**: Plataforma en la nube para datasets geoespaciales
-
-### Formato de Datos
-- **glTF/GLB**: Formato estándar para modelos 3D en la web
-- **3D Tiles**: Formato optimizado para streaming de datos 3D masivos
-- **Cesium Terrain**: Datos de elevación global optimizados
-
-### Desarrollo Web
-- **HTML5/CSS3**: Estándares web modernos
-- **JavaScript ES6+**: Programación del lado del cliente
-- **WebGL**: Aceleración por hardware para gráficos 3D
+- **[CesiumJS 1.146](https://cesium.com/platform/cesiumjs/)** desde jsDelivr (API asíncrona `Cesium3DTileset.fromUrl`, `Terrain.fromWorldTerrain`, `ClippingPolygonCollection`).
+- **[3D Tiles](https://github.com/CesiumGS/3d-tiles)** 1.0 (b3dm) con glTF 2.0: `KHR_draco_mesh_compression`, `EXT_texture_webp`, `KHR_materials_unlit`.
+- **[Cesium ion](https://cesium.com/platform/cesium-ion/)**: terreno global e imágenes base.
+- **Python** (numpy, shapely, DracoPy, Pillow) para preparar la huella de la malla.
 
 ## Estructura del proyecto
 
 ```
 MESH_CESIUM_MACHANGARA/
-├── index.html                  # Aplicación web principal
-├── logo.png                    # Logo del proyecto
-├── data/                       # Datos 3D y configuración
-│   └── tileset.json            # Archivo de configuración de 3D Tiles
-└── [archivos de malla 3D]      # Archivos .b3dm, .i3dm, .pnts, etc.
+├── index.html              # Visor (HTML + CSS + JS, sin compilación)
+├── logo.png
+├── data/
+│   ├── tileset.json        # Árbol de teselas (Cesium ion, "movable": sin georreferencia propia)
+│   ├── footprint.json      # Contorno válido y puntos de control (generado)
+│   └── 0/ … 5/             # Teselas .b3dm por nivel de detalle
+└── tools/
+    └── preparar_malla.py   # Genera data/footprint.json a partir de las teselas
 ```
 
 ## Instalación y uso
 
-### Requisitos previos
-- Servidor web estático (Apache, Nginx, o servidor de desarrollo como `http-server`)
-- Navegador web moderno con soporte WebGL 2.0 (Chrome 70+, Firefox 63+, Edge 79+)
-- Conexión a internet para cargar CesiumJS desde CDN y datos de terreno
-
-### Instalación local
-1. Clona el repositorio:
-   ```bash
-   git clone https://github.com/faustoaguanor/MESH_CESIUM_MACHANGARA.git
-   cd MESH_CESIUM_MACHANGARA
-   ```
-
-2. Inicia un servidor web local:
-   ```bash
-   # Con Python 3
-   python -m http.server 8000
-   
-   # O con Node.js http-server
-   npx http-server
-   ```
-
-3. Abre tu navegador en `http://localhost:8000`
-
-### Configuración de Cesium Ion
-El proyecto utiliza Cesium Ion para datos de terreno. Para usar tu propio token:
-
-1. Regístrate en [Cesium Ion](https://cesium.com/ion/)
-2. Genera un token de acceso
-3. Reemplaza el token en `index.html`:
-   ```javascript
-   Cesium.Ion.defaultAccessToken = "TU_TOKEN_AQUI";
-   ```
-
-## Funcionalidades
-
-### Navegación 3D
-- **Movimiento libre**: Click izquierdo + arrastrar para rotar
-- **Panorámica**: Click derecho + arrastrar para desplazar
-- **Zoom**: Rueda del ratón o gestos táctiles
-- **Vuelo a ubicaciones**: Navegación automatizada a puntos de interés
-
-### Visualización de Datos
-- **Mallas 3D optimizadas**: Streaming progresivo de datos con 3D Tiles
-- **Terreno real**: Datos de elevación global de Cesium World Terrain
-- **Sombreado realista**: Iluminación basada en posición solar
-- **Selección de objetos**: Interacción con elementos individuales del modelo
-
-### Herramientas de Análisis
-- **Medición de distancias**: Herramientas lineales y de área
-- **Perfiles de elevación**: Cortes transversales del terreno
-- **Información de posición**: Coordenadas geográficas en tiempo real
-- **Captura de vistas**: Exportación de imágenes y vistas 3D
-
-## Preparación de datos 3D
-
-### Conversión a 3D Tiles
-Para usar datos propios, necesitas convertirlos al formato 3D Tiles:
+Requisitos: un servidor web estático y un navegador con WebGL 2 (los recortes por polígono lo requieren).
 
 ```bash
-# Usando Cesium Ion CLI (recomendado)
-npm install -g cesium-ion-cli
-cesium-ion upload tu_modelo.glb --type 3dtiles
-
-# O usando herramientas de conversión offline
-# Consulta la documentación de CesiumGS/3d-tiles-tools
+git clone https://github.com/faustoaguanor/MESH_CESIUM_MACHANGARA.git
+cd MESH_CESIUM_MACHANGARA
+python -m http.server 8000   # o: npx http-server
 ```
 
-### Formatos soportados
-- **Entrada**: OBJ, FBX, CityGML, IFC, SketchUp, glTF/GLB
-- **Salida**: 3D Tiles (.b3dm, .i3dm, .pnts, .cmpt)
+Abra `http://localhost:8000`. No funciona abriendo `index.html` directamente (`file://`), porque el navegador bloquea la carga de las teselas.
 
-## Configuración avanzada
+### Token de Cesium ion
 
-### Personalización de la vista inicial
-Modifica las coordenadas en `index.html`:
+El token está en `CONFIG.ionToken` dentro de `index.html`. En un visor web estático el token siempre llega al navegador, así que no se puede ocultar: la protección consiste en **restringirlo**. El token actual está en el historial público del repositorio, por lo que conviene reemplazarlo:
+
+1. En <https://ion.cesium.com/tokens> cree un token nuevo con:
+   - **Scopes**: solo `assets:read`.
+   - **Resources**: solo los assets `1` (Cesium World Terrain) y `2` (Bing Maps Aerial).
+   - **Allowed URLs**: los dominios del visor, p. ej. `https://faustoaguanor.github.io` y `http://localhost:8000`.
+2. Péguelo en `CONFIG.ionToken`.
+3. Revoque el token anterior (el que empieza por `eyJhbGciOi…NTkzNCIs`).
+
+Si el token falla o se revoca, el visor no se rompe: muestra OpenStreetMap sin relieve y lo indica en la barra de estado.
+
+## Georreferenciación y alturas
+
+El tileset se exportó desde Cesium ion como *movable* (`georeferenced: false`): sus coordenadas son métricas locales. El visor lo coloca con una matriz Este-Norte-Arriba:
+
 ```javascript
-Cesium.Cartesian3.fromDegrees(-78.5437, -0.2653, 2900)
+origen: {
+  lon: -78.5437,
+  lat: -0.2653,
+  alturaOrtometrica: 2872.497, // cota sobre el nivel del mar del origen local de la malla
+  ondulacionGeoide: 25.58,     // N del geoide EGM96 en ese punto
+}
+// altura elipsoidal = 2872.497 + 25.58 = 2898.08 m
 ```
 
-### Estilos visuales
-Ajusta la apariencia de los modelos 3D:
-```javascript
-tileset.style = new Cesium.Cesium3DTileStyle({
-    color: "color('red')",
-    show: "${Height} > 100"
-});
+- Cesium trabaja con **alturas elipsoidales WGS84** (*h*); la malla está en **alturas ortométricas** (*H*, ~2872–2911 m). La conversión es *h = H + N*.
+- **N = 25,58 m** se calculó con el modelo EGM96 (paquete `egm96-universal`). Antes se usaban 2900 m fijos, que suponían N ≈ 27,5 m: la malla quedaba ~1,9 m por encima.
+- `alturaOrtometrica` es la traslación Z que Cesium ion aplicó al tileset (`tileset.json` → `root.children[0].transform`); no debe cambiarse salvo que cambie el tileset.
+- Si las cotas de la malla se referían a EGM2008 o al datum vertical del IGM, la diferencia con EGM96 aquí es del orden de 1 m. Si la malla estuviera en alturas **elipsoidales** (GNSS sin modelo de geoide), ponga `ondulacionGeoide: 0`.
+- Con ~600 m de extensión, la convergencia de cuadrícula UTM 17S (≈0,01°) y el factor de escala (≈1,0005) son despreciables.
+- El control de altura y *Ajustar al terreno* sirven para revisar el encaje visual; el terreno global (~30 m) es una guía, no una verdad de campo.
+
+## Preparación de datos
+
+`data/footprint.json` se regenera si cambian las teselas:
+
+```bash
+pip install numpy shapely DracoPy pillow
+python tools/preparar_malla.py huella
 ```
 
-### Optimización de rendimiento
-- **Nivel de detalle (LOD)**: Configuración automática basada en distancia
-- **Frustum culling**: Eliminación de elementos fuera de vista
-- **Occlusion culling**: Optimización para objetos ocultos
+El script decodifica las teselas del nivel 1, marca los triángulos cuya textura es blanco puro y descarta solo las zonas blancas conectadas al borde (los tejados blancos se conservan). Después aplica una apertura morfológica de 4 m y simplifica el contorno a 0,5 m.
+
+Las teselas no se modifican: ya vienen optimizadas por Cesium ion (Draco + WebP, 26 MB en total). Se evaluó activar mipmaps en las texturas y se descartó, porque restaba nitidez y producía costuras del atlas.
+
+Para cargar una malla nueva: súbala a Cesium ion (OBJ, FBX, glTF, etc.) como *3D Tiles*, descargue el tileset en `data/`, ajuste `CONFIG.origen` y regenere la huella.
 
 ## Licencia
 

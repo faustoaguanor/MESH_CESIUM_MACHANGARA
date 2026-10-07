@@ -1,108 +1,558 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-  <title>Visor Mesh Machangara</title>
   <meta charset="utf-8">
-  <!-- CesiumJS JavaScript CSS files -->
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visor Mesh Machángara</title>
+  <meta name="description" content="Malla fotogramétrica 3D del sector Machángara (Quito) sobre CesiumJS.">
 
-  <!-- estilos -->
-
-  
+  <!-- CesiumJS (jsDelivr, versión fija). Mantener JS y CSS en la misma versión. -->
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Cesium.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/cesium@1.146.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
   <style>
+    :root {
+      --azul: #27497c;
+      --panel: rgba(20, 24, 32, 0.82);
+      --texto: #f2f4f8;
+      --tenue: #aab3c2;
+      --acento: #4fa3ff;
+    }
 
-body {
-  font-family: arial, sans-serif;
-  margin: 0 2em;
+    * { box-sizing: border-box; }
 
-}
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #fff;
+    }
 
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
 
-.encabezado{
-  display:flex;
-  justify-content: space-around;
-  align-items: center;
-  background-color:  #FFFFFF;
+    .encabezado {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.4rem 1rem;
+      background: #fff;
+      border-bottom: 1px solid #e3e7ee;
+      flex: 0 0 auto;
+    }
 
+    #logo { height: 3rem; width: auto; }
 
-  }
+    h1 {
+      margin: 0;
+      flex: 1;
+      text-align: center;
+      color: var(--azul);
+      font-size: clamp(1rem, 2.4vw, 1.8rem);
+      font-weight: 700;
+    }
 
-  #cesiumContainer{
-    height: 87vh;
-    width: 100%;
-}
+    #cesiumContainer {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
 
-  h1{
-  display: block;
-  color : #27497C;
-  font-size: 2em;
-  font-weight: 700;
-  flex-grow: 2;
-  text-align: center;
+    /* Panel de control */
+    .panel {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.6rem;
+      z-index: 2;
+      width: 16.5rem;
+      max-width: calc(100% - 1.2rem);
+      padding: 0.7rem 0.8rem;
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--texto);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      backdrop-filter: blur(4px);
+    }
 
+    .panel h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
 
-}
+    .panel.colapsado .cuerpo { display: none; }
+    .panel.colapsado h2 { margin: 0; }
 
-#logo{
+    .fila { margin: 0.45rem 0; }
+    .fila label { display: flex; align-items: center; gap: 0.4rem; }
+    .fila input[type="range"] { width: 100%; accent-color: var(--acento); }
+    .fila select { width: 100%; }
+    .valor { color: var(--tenue); font-variant-numeric: tabular-nums; }
 
-width: 10em;
+    .panel button {
+      width: 100%;
+      margin-top: 0.25rem;
+      padding: 0.35rem;
+      border: 1px solid #56607a;
+      border-radius: 4px;
+      background: #2c3444;
+      color: var(--texto);
+      cursor: pointer;
+    }
+    .panel button:hover { background: #38435a; }
+    .panel button:disabled { opacity: 0.5; cursor: default; }
 
-}
+    .nota { color: var(--tenue); font-size: 0.75rem; margin-top: 0.3rem; }
 
+    /* Barra de estado inferior */
+    #estado {
+      position: absolute;
+      left: 0.6rem;
+      bottom: 0.6rem;
+      z-index: 2;
+      max-width: calc(100% - 1.2rem);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--texto);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    #carga {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 0;
+      z-index: 3;
+      background: var(--acento);
+      transition: width 0.2s, opacity 0.4s;
+    }
+
+    @media (max-width: 600px) {
+      #logo { height: 2.2rem; }
+      .panel { width: auto; right: 0.6rem; }
+    }
   </style>
-  
-
 </head>
 <body>
-  <div class="encabezado">
+  <header class="encabezado">
     <img id="logo" src="logo.png" alt="Logo">
-    <h1>DEMO VISOR MESH CESIUM</h1>
-  </div>
-  <div id="cesiumContainer" class="fullSize"></div>
-    <div id="toolbar"></div>
-    
-  <script>
+    <h1>Visor Mesh Machángara</h1>
+  </header>
 
-Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4YmRiN2Y3My1hMmYxLTQ4ZTktYWU2Yy02NWUyNWIyYTU5MzQiLCJpZCI6NzUyODcsImlhdCI6MTY3Njc0Mjk1N30.VVfP2xRmcNDp-Yy_qsDRhGvdDORhDlAcINz-WDawy_U";
+  <main id="cesiumContainer">
+    <div id="carga"></div>
+
+    <section class="panel" id="panel">
+      <h2 id="panelTitulo">Controles <span aria-hidden="true">▾</span></h2>
+      <div class="cuerpo">
+        <div class="fila">
+          <label><input type="checkbox" id="chkRecorte" checked> Recortar terreno bajo la malla</label>
+        </div>
+        <div class="fila">
+          <label><input type="checkbox" id="chkBordes" checked> Ocultar bordes sin textura</label>
+        </div>
+        <div class="fila">
+          <label><input type="checkbox" id="chkTerreno" checked> Mostrar globo / terreno</label>
+        </div>
+        <div class="fila">
+          Altura elipsoidal del origen: <span class="valor" id="valAltura"></span>
+          <input type="range" id="rngAltura" min="-40" max="40" step="0.1" value="0">
+          <button id="btnAjustar">Ajustar al terreno</button>
+          <div class="nota" id="notaAjuste">Compara el borde de la malla con el terreno (mediana).</div>
+        </div>
+        <div class="fila">
+          Calidad (error en pantalla):
+          <select id="selCalidad">
+            <option value="4">Máxima (SSE 4)</option>
+            <option value="8">Alta (SSE 8)</option>
+            <option value="16" selected>Equilibrada (SSE 16)</option>
+            <option value="32">Rápida (SSE 32)</option>
+          </select>
+        </div>
+        <div class="fila">
+          <button id="btnVista">Volver a la malla</button>
+          <button id="btnMedir">Medir distancia</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="estado">Cargando…</div>
+  </main>
+
+  <script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// Configuración
+// ---------------------------------------------------------------------------
+const CONFIG = {
+  // Token de Cesium ion (terreno e imágenes). Es público por naturaleza (va al navegador):
+  // debe estar RESTRINGIDO en https://ion.cesium.com/tokens a los dominios del visor y a los
+  // assets 1 (World Terrain) y 2 (Bing Aerial). Si falla o se revoca, el visor sigue
+  // funcionando con OpenStreetMap y sin relieve.
+  ionToken:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4YmRiN2Y3My1hMmYxLTQ4ZTktYWU2Yy02NWUyNWIyYTU5MzQiLCJpZCI6NzUyODcsImlhdCI6MTY3Njc0Mjk1N30.VVfP2xRmcNDp-Yy_qsDRhGvdDORhDlAcINz-WDawy_U",
+  tilesetUrl: "data/tileset.json",
+  footprintUrl: "data/footprint.json",
+  // Origen local del tileset (Ion "movable", sin georreferencia propia).
+  origen: {
+    lon: -78.5437,
+    lat: -0.2653,
+    // Cota ortométrica (sobre el nivel del mar) del origen local de la malla: es la
+    // traslación Z que Cesium ion aplicó al tileset (tileset.json, root.children[0].transform).
+    alturaOrtometrica: 2872.497,
+    // Ondulación del geoide EGM96 en (lon, lat): N = h - H. Cesium trabaja con alturas
+    // elipsoidales WGS84 (h), así que h = H + N. Calculada con egm96-universal.
+    ondulacionGeoide: 25.58,
+  },
+};
+CONFIG.origen.altura = CONFIG.origen.alturaOrtometrica + CONFIG.origen.ondulacionGeoide;
+
+Cesium.Ion.defaultAccessToken = CONFIG.ionToken;
+
+const $ = (id) => document.getElementById(id);
+const estado = $("estado");
+const barraCarga = $("carga");
+
+// ---------------------------------------------------------------------------
+// Visor
+// ---------------------------------------------------------------------------
+const terrenoIon = Cesium.Terrain.fromWorldTerrain({ requestVertexNormals: true });
+const capaIon = Cesium.ImageryLayer.fromWorldImagery();
 
 const viewer = new Cesium.Viewer("cesiumContainer", {
-  terrainProvider: new Cesium.CesiumTerrainProvider({
-    url: Cesium.IonResource.fromAssetId(1),
-  }),
+  terrain: terrenoIon,
+  baseLayer: capaIon,
+  animation: false,
+  timeline: false,
+  fullscreenButton: true,
+  geocoder: false,
+  infoBox: false,
+  selectionIndicator: false,
+  navigationHelpButton: true,
+  navigationInstructionsInitiallyVisible: false,
+  sceneModePicker: false,
+  baseLayerPicker: false,
+  // Solo se redibuja cuando algo cambia: menos GPU/batería en reposo.
+  requestRenderMode: true,
+  maximumRenderTimeChange: Infinity,
+  msaaSamples: 4,
 });
 
-viewer.scene.globe.depthTestAgainstTerrain = true;
+const scene = viewer.scene;
+const globe = scene.globe;
 
-const tileset = viewer.scene.primitives.add(
-  new Cesium.Cesium3DTileset({
+// Respaldo sin Cesium ion (token inválido, revocado o sin red hacia ion).
+let avisoIon = "";
+function sinIon(recurso, error) {
+  console.warn(`Cesium ion no disponible (${recurso}):`, error);
+  avisoIon = "Cesium ion no disponible: se muestra OpenStreetMap sin relieve.";
+  estado.textContent = avisoIon;
+}
+terrenoIon.errorEvent.addEventListener((e) => sinIon("terreno", e));
+capaIon.errorEvent.addEventListener((e) => {
+  viewer.imageryLayers.remove(capaIon);
+  viewer.imageryLayers.addImageryProvider(
+    new Cesium.OpenStreetMapImageryProvider({ url: "https://tile.openstreetmap.org/" }),
+    0
+  );
+  sinIon("imágenes", e);
+});
 
-    url: "data/tileset.json",
-    modelMatrix: Cesium.Transforms.eastNorthUpToFixedFrame(
-      Cesium.Cartesian3.fromDegrees( -78.5437, -0.2653,2900)
-    ),
-  })
-);
-(async () => {
+// La malla es fotogrametría con material "unlit": colores tal cual fueron capturados.
+scene.highDynamicRange = false;
+scene.postProcessStages.fxaa.enabled = false; // MSAA ya suaviza bordes; FXAA emborrona la textura
+globe.depthTestAgainstTerrain = true;          // la malla queda correctamente ocluida por el relieve
+globe.enableLighting = false;
+globe.maximumScreenSpaceError = 1.5;           // terreno algo más fino alrededor de la malla
+scene.screenSpaceCameraController.enableCollisionDetection = true;
+viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, 2); // nitidez en pantallas HiDPI sin pasarse
+
+// ---------------------------------------------------------------------------
+// Utilidades de georreferenciación
+// ---------------------------------------------------------------------------
+let alturaOrigen = CONFIG.origen.altura;
+
+function matrizOrigen(altura) {
+  return Cesium.Transforms.eastNorthUpToFixedFrame(
+    Cesium.Cartesian3.fromDegrees(CONFIG.origen.lon, CONFIG.origen.lat, altura)
+  );
+}
+
+// Convierte coordenadas ENU locales (m) del tileset a ECEF.
+function enuAEcef(matriz, e, n, u) {
+  return Cesium.Matrix4.multiplyByPoint(matriz, new Cesium.Cartesian3(e, n, u), new Cesium.Cartesian3());
+}
+
+function fmtAltura() {
+  const delta = alturaOrigen - CONFIG.origen.altura;
+  $("valAltura").textContent =
+    `${alturaOrigen.toFixed(1)} m (${delta >= 0 ? "+" : ""}${delta.toFixed(1)})`;
+}
+
+// ---------------------------------------------------------------------------
+// Carga del tileset
+// ---------------------------------------------------------------------------
+let tileset;
+let huella;
+
+async function iniciar() {
   try {
-    await tileset.readyPromise;
-    await viewer.zoomTo(tileset);
+    const [ts, fp] = await Promise.all([
+      Cesium.Cesium3DTileset.fromUrl(CONFIG.tilesetUrl, {
+        modelMatrix: matrizOrigen(alturaOrigen),
+        maximumScreenSpaceError: 16,
+        // Menos detalle en el horizonte y la periferia de la vista: menos descargas, misma percepción.
+        dynamicScreenSpaceError: true,
+        foveatedScreenSpaceError: true,
+        cacheBytes: 768 * 1024 * 1024,
+        maximumCacheOverflowBytes: 256 * 1024 * 1024,
+        // Material unlit: no se necesitan sombras ni normales.
+        shadows: Cesium.ShadowMode.DISABLED,
+        backFaceCulling: true,
+      }),
+      fetch(CONFIG.footprintUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
 
-    const extras = tileset.asset.extras;
-    if (
-      Cesium.defined(extras) &&
-      Cesium.defined(extras.ion) &&
-      Cesium.defined(extras.ion.defaultStyle)
-    ) {
-      tileset.style = new Cesium.Cesium3DTileStyle(extras.ion.defaultStyle);
-    }
+    tileset = scene.primitives.add(ts);
+    huella = fp;
+
+    tileset.loadProgress.addEventListener((pendientes) => {
+      if (pendientes > 0) {
+        barraCarga.style.opacity = "1";
+        barraCarga.style.width = `${Math.max(5, 100 - Math.min(pendientes, 95))}%`;
+      }
+    });
+    tileset.allTilesLoaded.addEventListener(() => {
+      barraCarga.style.width = "100%";
+      barraCarga.style.opacity = "0";
+    });
+
+    actualizarRecortes();
+    fmtAltura();
+    await irAMalla(0);
+    estado.textContent = avisoIon || "Clic: coordenadas · «Medir distancia» para medir entre dos puntos";
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    estado.textContent = `Error al cargar la malla: ${error.message || error}`;
   }
-})();
+}
 
+function irAMalla(duracion = 1.5) {
+  if (!tileset) return Promise.resolve();
+  return viewer.flyTo(tileset, {
+    duration: duracion,
+    offset: new Cesium.HeadingPitchRange(
+      Cesium.Math.toRadians(20),
+      Cesium.Math.toRadians(-35),
+      tileset.boundingSphere.radius * 2.2
+    ),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Recortes con el contorno de la malla (data/footprint.json)
+//  - Terreno: se recorta DENTRO del contorno para que el relieve de ~30 m de
+//    Cesium World Terrain no atraviese la malla (cauce del Machángara, taludes).
+//  - Malla: se recorta FUERA del contorno para ocultar los faldones blancos de
+//    los bordes, que no tienen cobertura fotográfica.
+// Ambos usan el mismo contorno, así la malla y el terreno empalman sin huecos.
+// ---------------------------------------------------------------------------
+function poligonoContorno() {
+  const m = matrizOrigen(0);
+  return new Cesium.ClippingPolygon({
+    positions: huella.contorno.map(([e, n]) => enuAEcef(m, e, n, 0)),
+  });
+}
+
+function actualizarRecortes() {
+  if (!huella || !huella.contorno) return;
+  if (!globe.clippingPolygons || globe.clippingPolygons.length === 0) {
+    globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
+      polygons: [poligonoContorno()],
+    });
+  }
+  if (tileset && (!tileset.clippingPolygons || tileset.clippingPolygons.length === 0)) {
+    tileset.clippingPolygons = new Cesium.ClippingPolygonCollection({
+      polygons: [poligonoContorno()],
+      inverse: true,
+    });
+  }
+  globe.clippingPolygons.enabled = $("chkRecorte").checked;
+  if (tileset) tileset.clippingPolygons.enabled = $("chkBordes").checked;
+  scene.requestRender();
+}
+
+// ---------------------------------------------------------------------------
+// Ajuste vertical
+// ---------------------------------------------------------------------------
+function aplicarAltura(altura) {
+  alturaOrigen = altura;
+  if (tileset) tileset.modelMatrix = matrizOrigen(alturaOrigen);
+  $("rngAltura").value = (alturaOrigen - CONFIG.origen.altura).toFixed(1);
+  fmtAltura();
+  scene.requestRender();
+}
+
+async function ajustarAlTerreno() {
+  if (!huella || !huella.puntosControl) return;
+  const btn = $("btnAjustar");
+  btn.disabled = true;
+  $("notaAjuste").textContent = "Muestreando terreno…";
+  try {
+    const terreno = scene.terrainProvider;
+    if (!terreno || terreno instanceof Cesium.EllipsoidTerrainProvider) {
+      throw new Error("el terreno aún no está disponible");
+    }
+    const m = matrizOrigen(0);
+    const pts = huella.puntosControl;
+    // Altura elipsoidal de cada vértice de la malla con el origen a altura 0.
+    const cartos = pts.map(([e, n, u]) =>
+      Cesium.Cartographic.fromCartesian(enuAEcef(m, e, n, u))
+    );
+    const alturasMalla = cartos.map((c) => c.height);
+    const muestras = await Cesium.sampleTerrainMostDetailed(
+      terreno,
+      cartos.map((c) => new Cesium.Cartographic(c.longitude, c.latitude))
+    );
+    const dif = muestras
+      .map((c, i) => c.height - alturasMalla[i])
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
+    if (!dif.length) throw new Error("sin muestras de terreno");
+    const mediana = dif[Math.floor(dif.length / 2)];
+    const mad = [...dif.map((d) => Math.abs(d - mediana))].sort((a, b) => a - b)[Math.floor(dif.length / 2)];
+    aplicarAltura(mediana);
+    $("notaAjuste").textContent =
+      `Origen a ${mediana.toFixed(1)} m (dispersión MAD ±${mad.toFixed(1)} m, n=${dif.length}). ` +
+      "El terreno global es de ~30 m: úselo como guía.";
+  } catch (e) {
+    console.error(e);
+    $("notaAjuste").textContent = `No se pudo ajustar: ${e.message || e}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Coordenadas y medición
+// ---------------------------------------------------------------------------
+let modoMedir = false;
+let puntoA = null;
+
+function posicionEn(pos) {
+  if (!scene.pickPositionSupported) return undefined;
+  const p = scene.pickPosition(pos);
+  return Cesium.defined(p) ? p : undefined;
+}
+
+function textoCoords(c) {
+  const carto = Cesium.Cartographic.fromCartesian(c);
+  return `Lat ${Cesium.Math.toDegrees(carto.latitude).toFixed(6)}°, ` +
+    `Lon ${Cesium.Math.toDegrees(carto.longitude).toFixed(6)}°, ` +
+    `h elip. ${carto.height.toFixed(1)} m`;
+}
+
+const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+handler.setInputAction((ev) => {
+  const p = posicionEn(ev.position);
+  if (!p) return;
+  if (!modoMedir) {
+    estado.textContent = textoCoords(p);
+    return;
+  }
+  if (!puntoA) {
+    puntoA = p;
+    viewer.entities.removeAll();
+    viewer.entities.add({
+      position: p,
+      point: { pixelSize: 8, color: Cesium.Color.YELLOW, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+    estado.textContent = "Medir: clic en el segundo punto";
+  } else {
+    const d = Cesium.Cartesian3.distance(puntoA, p);
+    const ca = Cesium.Cartographic.fromCartesian(puntoA);
+    const cb = Cesium.Cartographic.fromCartesian(p);
+    const dh = cb.height - ca.height;
+    const dHoriz = new Cesium.EllipsoidGeodesic(ca, cb).surfaceDistance;
+    viewer.entities.add({
+      position: p,
+      point: { pixelSize: 8, color: Cesium.Color.YELLOW, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    });
+    viewer.entities.add({
+      polyline: {
+        positions: [puntoA, p],
+        width: 3,
+        material: Cesium.Color.YELLOW,
+        depthFailMaterial: Cesium.Color.YELLOW.withAlpha(0.4),
+      },
+      position: Cesium.Cartesian3.midpoint(puntoA, p, new Cesium.Cartesian3()),
+      label: {
+        text: `${d.toFixed(2)} m`,
+        font: "14px sans-serif",
+        fillColor: Cesium.Color.WHITE,
+        showBackground: true,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    });
+    estado.textContent =
+      `Distancia 3D ${d.toFixed(2)} m · horizontal ${dHoriz.toFixed(2)} m · Δh ${dh.toFixed(2)} m`;
+    puntoA = null;
+  }
+  scene.requestRender();
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+$("btnMedir").addEventListener("click", () => {
+  modoMedir = !modoMedir;
+  puntoA = null;
+  $("btnMedir").textContent = modoMedir ? "Terminar medición" : "Medir distancia";
+  if (!modoMedir) viewer.entities.removeAll();
+  estado.textContent = modoMedir ? "Medir: clic en el primer punto" : "Clic: coordenadas";
+  scene.requestRender();
+});
+
+// ---------------------------------------------------------------------------
+// Controles
+// ---------------------------------------------------------------------------
+$("panelTitulo").addEventListener("click", () => $("panel").classList.toggle("colapsado"));
+$("chkRecorte").addEventListener("change", actualizarRecortes);
+$("chkBordes").addEventListener("change", actualizarRecortes);
+$("chkTerreno").addEventListener("change", (e) => {
+  globe.show = e.target.checked;
+  scene.requestRender();
+});
+$("rngAltura").addEventListener("input", (e) => aplicarAltura(CONFIG.origen.altura + Number(e.target.value)));
+$("btnAjustar").addEventListener("click", ajustarAlTerreno);
+$("selCalidad").addEventListener("change", (e) => {
+  if (tileset) tileset.maximumScreenSpaceError = Number(e.target.value);
+  scene.requestRender();
+});
+$("btnVista").addEventListener("click", () => irAMalla());
+
+// El botón "Inicio" del visor vuelve a la malla en lugar de a la vista global.
+viewer.homeButton.viewModel.command.beforeExecute.addEventListener((e) => {
+  if (tileset) {
+    e.cancel = true;
+    irAMalla();
+  }
+});
+
+if (window.matchMedia("(max-width: 600px)").matches) $("panel").classList.add("colapsado");
+
+iniciar();
   </script>
- </div>
 </body>
 </html>
