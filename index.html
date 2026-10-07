@@ -192,33 +192,11 @@
     <div id="estado">Cargando…</div>
   </main>
 
+  <script src="config.js"></script>
   <script>
 "use strict";
 
-// ---------------------------------------------------------------------------
-// Configuración
-// ---------------------------------------------------------------------------
-const CONFIG = {
-  // Token de Cesium ion (terreno e imágenes). Es público por naturaleza (va al navegador):
-  // debe estar RESTRINGIDO en https://ion.cesium.com/tokens a los dominios del visor y a los
-  // assets 1 (World Terrain) y 2 (Bing Aerial). Si falla o se revoca, el visor sigue
-  // funcionando con OpenStreetMap y sin relieve.
-  ionToken:
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4YmRiN2Y3My1hMmYxLTQ4ZTktYWU2Yy02NWUyNWIyYTU5MzQiLCJpZCI6NzUyODcsImlhdCI6MTY3Njc0Mjk1N30.VVfP2xRmcNDp-Yy_qsDRhGvdDORhDlAcINz-WDawy_U",
-  tilesetUrl: "data/tileset.json",
-  footprintUrl: "data/footprint.json",
-  // Origen local del tileset (Ion "movable", sin georreferencia propia).
-  origen: {
-    lon: -78.5437,
-    lat: -0.2653,
-    // Cota ortométrica (sobre el nivel del mar) del origen local de la malla: es la
-    // traslación Z que Cesium ion aplicó al tileset (tileset.json, root.children[0].transform).
-    alturaOrtometrica: 2872.497,
-    // Ondulación del geoide EGM96 en (lon, lat): N = h - H. Cesium trabaja con alturas
-    // elipsoidales WGS84 (h), así que h = H + N. Calculada con egm96-universal.
-    ondulacionGeoide: 25.58,
-  },
-};
+// CONFIG se define en config.js.
 CONFIG.origen.altura = CONFIG.origen.alturaOrtometrica + CONFIG.origen.ondulacionGeoide;
 
 Cesium.Ion.defaultAccessToken = CONFIG.ionToken;
