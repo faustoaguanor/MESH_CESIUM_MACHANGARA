@@ -28,7 +28,7 @@ Este proyecto implementa un visualizador 3D web para mallas de datos geoespacial
 ```
 MESH_CESIUM_MACHANGARA/
 ├── index.html              # Visor (HTML + CSS + JS, sin compilación)
-├── logo.png
+├── config.js               # Token de Cesium ion y origen de la malla
 ├── data/
 │   ├── tileset.json        # Árbol de teselas (Cesium ion, "movable": sin georreferencia propia)
 │   ├── footprint.json      # Contorno válido y puntos de control (generado)
@@ -51,16 +51,11 @@ Abra `http://localhost:8000`. No funciona abriendo `index.html` directamente (`f
 
 ### Token de Cesium ion
 
-El token está en `CONFIG.ionToken` dentro de `index.html`. En un visor web estático el token siempre llega al navegador, así que no se puede ocultar: la protección consiste en **restringirlo**. El token actual está en el historial público del repositorio, por lo que conviene reemplazarlo:
+El token y el origen de la malla están en **`config.js`** (`CONFIG.ionToken`, `CONFIG.origen`), que `index.html` carga antes del visor. Para cambiar de token basta con editar ese archivo.
 
-1. En <https://ion.cesium.com/tokens> cree un token nuevo con:
-   - **Scopes**: solo `assets:read`.
-   - **Resources**: solo los assets `1` (Cesium World Terrain) y `2` (Bing Maps Aerial).
-   - **Allowed URLs**: los dominios del visor, p. ej. `https://faustoaguanor.github.io` y `http://localhost:8000`.
-2. Péguelo en `CONFIG.ionToken`.
-3. Revoque el token anterior (el que empieza por `eyJhbGciOi…NTkzNCIs`).
+En un visor web estático el token siempre llega al navegador, así que no se puede ocultar. Para que nadie lo use fuera de tu visor, puede limitarse sin cambiarlo: en <https://ion.cesium.com/tokens>, edite el token y en **Allowed URLs** añada los dominios del visor (p. ej. `https://faustoaguanor.github.io` y `http://localhost:8000`).
 
-Si el token falla o se revoca, el visor no se rompe: muestra OpenStreetMap sin relieve y lo indica en la barra de estado.
+Si el token falla, el visor no se rompe: muestra OpenStreetMap sin relieve y lo indica en la barra de estado.
 
 ## Georreferenciación y alturas
 
@@ -79,7 +74,7 @@ origen: {
 - Cesium trabaja con **alturas elipsoidales WGS84** (*h*); la malla está en **alturas ortométricas** (*H*, ~2872–2911 m). La conversión es *h = H + N*.
 - **N = 25,58 m** se calculó con el modelo EGM96 (paquete `egm96-universal`). Antes se usaban 2900 m fijos, que suponían N ≈ 27,5 m: la malla quedaba ~1,9 m por encima.
 - `alturaOrtometrica` es la traslación Z que Cesium ion aplicó al tileset (`tileset.json` → `root.children[0].transform`); no debe cambiarse salvo que cambie el tileset.
-- Si las cotas de la malla se referían a EGM2008 o al datum vertical del IGM, la diferencia con EGM96 aquí es del orden de 1 m. Si la malla estuviera en alturas **elipsoidales** (GNSS sin modelo de geoide), ponga `ondulacionGeoide: 0`.
+- Si las cotas de la malla se referían a EGM2008 o al datum vertical del IGM, la diferencia con EGM96 aquí es del orden de 1 m. Si la malla estuviera en alturas **elipsoidales** (GNSS sin modelo de geoide), ponga `ondulacionGeoide: 0` en `config.js`.
 - Con ~600 m de extensión, la convergencia de cuadrícula UTM 17S (≈0,01°) y el factor de escala (≈1,0005) son despreciables.
 - El control de altura y *Ajustar al terreno* sirven para revisar el encaje visual; el terreno global (~30 m) es una guía, no una verdad de campo.
 
